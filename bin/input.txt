@@ -1,0 +1,3 @@
+S1->A1 S1 A1-a B1
+A1->B1-S1
+B1->b-Epsi
