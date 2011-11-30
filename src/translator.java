@@ -6,6 +6,7 @@ public class translator {
 	private static HashSet<String> variables = new HashSet<String>();
 	private static HashSet<String> terminals = new HashSet<String>();
 	private static ArrayList<String> inFile = new ArrayList<String>();
+	private static String oldStarting = new String();
 
 	public static void main(String[] args) {
 		try{
@@ -46,8 +47,14 @@ public class translator {
 			  
 			  System.out.println("\nStep 2: shorten old rules");
 			  NoMoreLongRules();
+			  
+			  System.out.println("\nStep 3: introduce new starting");
 			  NewStartingSymbol();
+			  
+			  System.out.println("\nStep 4: remove possible epsilon variables");
 			  RemoveEpsilon();
+			  
+			  System.out.println("\nStep 5: remove unit rules");
 			  RemoveUnitRules();
 			  
 			  
@@ -57,18 +64,165 @@ public class translator {
 	}
 
 	private static void RemoveUnitRules() {
-		// TODO Auto-generated method stub
+		
 		
 	}
 
 	private static void RemoveEpsilon() {
-		// TODO Auto-generated method stub
+		System.out.println("Variables that can possible generate epsilon: ");
+		HashSet<String> epsiVariables = FindPossibleEpsilon();
+		for (String s : epsiVariables)
+			System.out.println(s);
 		
+		HashMap<String, HashSet<ArrayList<String>>> newRules = new HashMap<String, HashSet<ArrayList<String>>>();
+		for (String var : variables)
+		{
+			HashSet<ArrayList<String>> varRules = rules.get(var);
+			HashSet<ArrayList<String>> varNewRules = new HashSet<ArrayList<String>>();
+			for (ArrayList<String> temp : varRules)
+			{
+				varNewRules.add(temp);
+			}
+			for (ArrayList<String> singleRule : varRules)
+			{
+				ArrayList<String> newSingleRule = new ArrayList<String>();
+				boolean removed = false;
+				for (String unit : singleRule)
+				{
+					if ((!removed) && (epsiVariables.contains(unit))&&(singleRule.size() == 2))
+						removed = true;
+					else
+						newSingleRule.add(unit);
+				}
+				if (removed)
+					varNewRules.add(newSingleRule);
+			}
+			newRules.put(var, varNewRules);
+		}
+		rules = newRules;
+		newRules = new HashMap<String, HashSet<ArrayList<String>>>();
+		for (String var : variables)
+		{
+			HashSet<ArrayList<String>> varRule = rules.get(var);
+			HashSet<ArrayList<String>> varNewRule = new HashSet<ArrayList<String>>();
+			for (ArrayList<String> singleRule : varRule)
+			{
+				if ((singleRule.size() > 1) || (!(singleRule.get(0).equals("Epsi"))))
+					varNewRule.add(singleRule);
+			}
+			newRules.put(var, varNewRule);
+		}
+		rules = newRules;
+		for (String var: variables)
+			PrintRule(var, rules.get(var));
+	}
+
+	private static HashSet<String> FindPossibleEpsilon() {
+		HashMap<String, HashSet<ArrayList<String>>> rulesCoppied = new HashMap<String, HashSet<ArrayList<String>>>();
+		for (String var : variables)
+		{
+			rulesCoppied.put(var, rules.get(var));
+		}
+		
+		HashSet<String> epsiVariables = new HashSet<String>();
+		boolean found = true;
+		while (found)
+		{
+			found = false;
+			for (String var : variables)
+			{
+				HashSet<ArrayList<String>> varRules = rulesCoppied.get(var);
+				for (ArrayList<String> varRule : varRules)
+				{
+					if ((varRule.size() == 1) && (varRule.get(0).equals("Epsi")) && (var != oldStarting) && (!epsiVariables.contains(var)))
+					{
+						epsiVariables.add(var);
+						found = true;
+					}
+				}
+			}
+
+			for (String var : variables)
+			{
+				HashSet<ArrayList<String>> varRules = rulesCoppied.get(var);
+				HashSet<ArrayList<String>> varNewRules = new HashSet<ArrayList<String>>();
+				for (ArrayList<String> varRule : varRules)
+				{
+					ArrayList<String> varNewRule = new ArrayList<String>();
+					for (String unit : varRule)
+						if (!epsiVariables.contains(unit))
+							varNewRule.add(unit);
+					if (var.equals("B2"))
+						System.out.println("Funny");
+					if (varNewRule.isEmpty())
+						varNewRule.add("Epsi");
+					varNewRules.add(varNewRule);
+				}
+				rulesCoppied.remove(var);
+				rulesCoppied.put(var, varNewRules);
+			}
+//			for (String epsiVar : epsiVariables)
+//			{
+//				rulesCoppied.remove(epsiVar);
+//			}
+		}
+		return epsiVariables;
 	}
 
 	private static void NewStartingSymbol() {
-		// TODO Auto-generated method stub
+		oldStarting = inFile.get(0).split("->")[0].trim();
+		String newStarting = "S0";
 		
+		HashMap<String, HashSet<ArrayList<String>>> newRules = new HashMap<String, HashSet<ArrayList<String>>>();
+		HashSet<String> newVariables = new HashSet<String>();
+		
+		newVariables.add(newStarting);
+		newVariables.add(oldStarting);
+		newRules.put(newStarting, rules.get(oldStarting));
+		System.out.println("Introduce new S0 that takes place of old " + oldStarting);
+		PrintRule(newStarting, newRules.get(newStarting));
+		
+		HashSet<ArrayList<String>> newStartingRules = new HashSet<ArrayList<String>>();
+		ArrayList<String> newStartingRule = new ArrayList<String>();
+		newStartingRule.add(newStarting);
+		newStartingRules.add(newStartingRule);
+		newRules.put(oldStarting, newStartingRules);
+		System.out.println("New startinng rule: ");
+		PrintRule(oldStarting, newRules.get(oldStarting));
+		
+		System.out.println("Replace old rules with " + oldStarting + " by new " + newStarting);
+		for (String var: variables)
+		{
+			boolean changed = false;
+			if (!var.equals(oldStarting))
+			{
+				newVariables.add(var);
+				HashSet<ArrayList<String>> varRules = rules.get(var);
+				HashSet<ArrayList<String>> varNewRules = new HashSet<ArrayList<String>>();
+
+				for (ArrayList<String> oldSingleRule : varRules)
+				{
+					ArrayList<String> newSingleRule = new ArrayList<String>();
+					for (String unit : oldSingleRule)
+						if (unit.equals(oldStarting))
+						{
+							changed = true;					
+							newSingleRule.add(newStarting);
+						}
+						else
+							newSingleRule.add(unit);
+					varNewRules.add(newSingleRule);
+				}
+
+				newRules.put(var, varNewRules);
+				if (changed)
+					PrintRule(var, varNewRules);
+			}
+		}
+		
+		
+		variables = newVariables;
+		rules = newRules;
 	}
 
 	private static void NoMoreLongRules() throws Exception {
@@ -131,7 +285,7 @@ public class translator {
 			{
 				char[] cc = {a,n};
 				nextVar = new String(cc);
-				if (!variablesList.contains(nextVar))
+				if ((!variablesList.contains(nextVar))&&(nextVar != "S0"))
 					return nextVar;
 			}
 		}
@@ -187,6 +341,7 @@ public class translator {
 		}
 		
 		rules = newRules;
+		variables = newVariables;
 	}
 	
 //	private static String CharToString(char c) {
