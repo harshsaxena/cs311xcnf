@@ -2,14 +2,14 @@ import java.io.*;
 import java.util.*;
 
 public class translator {
-	private static HashMap<String,HashSet<String>> rules = new HashMap<String,HashSet<String>>();
+	private static HashMap<String,HashSet<ArrayList<String>>> rules = new HashMap<String,HashSet<ArrayList<String>>>();
 	private static HashSet<String> variables = new HashSet<String>();
 	private static HashSet<String> terminals = new HashSet<String>();
 	private static ArrayList<String> inFile = new ArrayList<String>();
 
 	public static void main(String[] args) {
 		try{
-			  FileInputStream fstream = new FileInputStream("C:\\Users\\Onirz\\workspace\\CNF Translator\\bin\\input.txt");
+			  FileInputStream fstream = new FileInputStream("N:\\workspace\\CNF translator\\bin\\input.txt");
 			  DataInputStream in = new DataInputStream(fstream);
 			  BufferedReader br = new BufferedReader(new InputStreamReader(in));
 			  String strLine;
@@ -20,31 +20,31 @@ public class translator {
 				  String[] rootAndProduct = strLine.split("->");
 				  variables.add(rootAndProduct[0].trim());
 				  String[] individualProduct = rootAndProduct[1].split("-");
-				  HashSet<String> productsFromSameRoot = new HashSet<String>();
+				  HashSet<ArrayList<String>> productsFromSameRoot = new HashSet<ArrayList<String>>();
 				  
 				  for (String s : individualProduct)
 				  {
-					  String[] productUnit = s.split(" ");
-					  String singleRule = new String();
+					  ArrayList<String> productUnit = new ArrayList<String>(Arrays.asList(s.split(" ")));
+					  //String singleRule = new String();
 					  for (String s1 : productUnit)
 					  {
 						  if (s1.length() == 1)
 							  terminals.add(s1);
 						  else if (s1.length() == 2) 
 							  variables.add(s1);
-						  singleRule += s1 + " ";
+						  //singleRule += s1 + " ";
 					  }
-					  productsFromSameRoot.add(singleRule.trim());					  
+					  productsFromSameRoot.add(productUnit);				
+					  PrintRule(rootAndProduct[0].trim(), productUnit);
 				  }
 				  rules.put(rootAndProduct[0].trim(), productsFromSameRoot);
-				  for (String rule : productsFromSameRoot)
-				  {
-					  System.out.println(rootAndProduct[0] + "->" + rule);
-				  }
 			  }
 			  in.close();
 			  
+			  System.out.println("\nStep 1: create new rules from terminals and replace terminals by them.");
 			  VariablesFromTerminal();
+			  
+			  System.out.println("\nStep 2: shorten old rules");
 			  NoMoreLongRules();
 			  NewStartingSymbol();
 			  RemoveEpsilon();
@@ -52,7 +52,7 @@ public class translator {
 			  
 			  
 			    }catch (Exception e){//Catch exception if any
-			  System.err.println("Error: " + e.getMessage());
+			  System.err.println("Error: " + e.toString());
 			  }
 	}
 
@@ -71,33 +71,83 @@ public class translator {
 		
 	}
 
-	private static void NoMoreLongRules() {
-		HashMap<String, HashSet<String>> newRules = new HashMap<String, HashSet<String>>();
+	private static void NoMoreLongRules() throws Exception {
+		HashMap<String, HashSet<ArrayList<String>>> newRules = new HashMap<String, HashSet<ArrayList<String>>>();
 		HashSet<String> newVariables = new HashSet<String>();
+		for (String s: variables)
+		{
+			newVariables.add(s);
+		}
 		boolean noMoreLongRules = true;
 		for (String var : variables)
 		{
 			newVariables.add(var);
-			HashSet<String> varRules = rules.get(var);
-			for (String singleRule : varRules)
+			HashSet<ArrayList<String>> varRules = rules.get(var);
+			HashSet<ArrayList<String>> varNewRules = new HashSet<ArrayList<String>>();
+			for (ArrayList<String> singleRule : varRules)
 			{
-				if (singleRule.length() > 5)
+				if (singleRule.size() > 2)	// rule that contains more than 2 units (terminal/variable)
 				{
 					noMoreLongRules = false;
+					
+					String newVar = NextAvailableVariable(newVariables);
+					newVariables.add(newVar);
+					HashSet<ArrayList<String>> newVarRule = new HashSet<ArrayList<String>>();
+					ArrayList<String> newRule1 = new ArrayList<String>();
+					newRule1.add(singleRule.get(0));
+					newRule1.add(singleRule.get(1));
+					newVarRule.add(newRule1);
+					System.out.print("New rule: ");
+					PrintRule(newVar, newRule1);
+					newRules.put(newVar, newVarRule);
+					
+					ArrayList<String> newRule2 = new ArrayList<String>();
+					newRule2.add(newVar);
+					for (int i = 2; i < singleRule.size(); i++)
+					{
+						newRule2.add(singleRule.get(i));
+					}
+					System.out.print("Update old rule: ");
+					PrintRule(var, newRule2);
+					varNewRules.add(newRule2);
 				}
+				else
+					varNewRules.add(singleRule);
+			}
+			newRules.put(var, varNewRules);
+		}
+		
+		variables = newVariables;
+		rules = newRules;
+		if (!noMoreLongRules)
+			NoMoreLongRules();
+	}
+
+	private static String NextAvailableVariable(HashSet<String> variablesList) throws Exception {
+		String nextVar;
+		for (char a = 'A'; a <= 'Z'; a++)
+		{
+			for (char n = '1'; n <= '9'; n++)
+			{
+				char[] cc = {a,n};
+				nextVar = new String(cc);
+				if (!variablesList.contains(nextVar))
+					return nextVar;
 			}
 		}
+		throw new Exception("Out of variable");
 	}
 
 	private static void VariablesFromTerminal() {
-		HashMap<String, HashSet<String>> newRules = new HashMap<String, HashSet<String>>();
+		HashMap<String, HashSet<ArrayList<String>>> newRules = new HashMap<String, HashSet<ArrayList<String>>>();
 		HashSet<String> newVariables = new HashSet<String>();
 		System.out.println("Rules from terminal: ");
 		for (String term : terminals)
 		{
 			String newVar = term.toUpperCase().trim() + "0";
-			HashSet<String> rulesForNewVar = new HashSet<String>();
-			rulesForNewVar.add(term);
+			HashSet<ArrayList<String>> rulesForNewVar = new HashSet<ArrayList<String>>();
+			String[] tempArr = {term};
+			rulesForNewVar.add(new ArrayList<String>(Arrays.asList(tempArr)));
 			System.out.println(newVar + "->" + term);
 			newRules.put(newVar, rulesForNewVar);
 			newVariables.add(newVar);
@@ -113,23 +163,25 @@ public class translator {
 		for (String var : variables)
 		{
 			
-				HashSet<String> newVarRules = new HashSet<String>();
-				HashSet<String> varRules = rules.get(var);
+				HashSet<ArrayList<String>> newVarRules = new HashSet<ArrayList<String>>();
+				HashSet<ArrayList<String>> varRules = rules.get(var);
 				boolean changed = false;
-				for (String singleRule : varRules)
+				for (ArrayList<String> singleRule : varRules)
 				{
-					String newSingleRule = new String();
-					for (int i = 0; i < singleRule.length(); i++)
-						if (terminals.contains(CharToString(singleRule.charAt(i))))
+					ArrayList<String> newSingleRule = new ArrayList<String>();
+					for (int i = 0; i < singleRule.size(); i++)
+						if (terminals.contains(singleRule.get(i)))
 						{
 							changed = true;
-							newSingleRule += CharToString(singleRule.charAt(i)).toUpperCase() + "0";
+							newSingleRule.add(singleRule.get(i).toUpperCase() + "0");
 						}
 						else
-							newSingleRule += CharToString(singleRule.charAt(i));
+							newSingleRule.add(singleRule.get(i));
 					newVarRules.add(newSingleRule);
 					if (changed)
-						System.out.println(var + "->" + newSingleRule);
+					{
+						PrintRule(var, newSingleRule);
+					}
 				}
 				newRules.put(var, newVarRules);
 		}
@@ -137,10 +189,27 @@ public class translator {
 		rules = newRules;
 	}
 	
-	private static String CharToString(char c) {
-		char[] cc = {c};
-		String s = new String(cc);
-		return s;
+//	private static String CharToString(char c) {
+//		char[] cc = {c};
+//		String s = new String(cc);
+//		return s;
+//	}
+	
+	private static void PrintRule(String root, ArrayList<String> product)
+	{
+		System.out.print(root + "->");
+		for (int i = 0; i < product.size(); i++)
+		{
+			System.out.print(product.get(i) + " ");
+		}
+		System.out.println();
 	}
 
+	private static void PrintRule(String root, HashSet<ArrayList<String>> products)
+	{
+		for (ArrayList<String> product : products)
+		{
+			PrintRule(root, product);
+		}
+	}
 }
