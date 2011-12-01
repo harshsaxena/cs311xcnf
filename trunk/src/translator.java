@@ -57,6 +57,24 @@ public class translator {
 			  System.out.println("\nStep 5: remove unit rules");
 			  RemoveUnitRules();
 			  
+			  System.out.println("\nResult: ");
+			  for (ArrayList<String> singleRule : rules.get(oldStarting))
+			  {
+				  if ((singleRule.size()!=1)||(singleRule.get(0).length()==1))
+					  PrintRule(oldStarting, singleRule);
+			  }
+			  for (String var : variables)
+			  {
+				  if (!var.equals(oldStarting))
+				  {
+				  for (ArrayList<String> singleRule : rules.get(var))
+				  {
+					  if ((singleRule.size()!=1)||(singleRule.get(0).length()==1))
+						  PrintRule(var, singleRule);
+				  }
+				  }
+			  }
+			  
 			  
 			    }catch (Exception e){//Catch exception if any
 			  System.err.println("Error: " + e.toString());
@@ -64,8 +82,31 @@ public class translator {
 	}
 
 	private static void RemoveUnitRules() {
+		HashMap<String, HashSet<ArrayList<String>>> newRules = new HashMap<String, HashSet<ArrayList<String>>>();
 		
+		for (String var : variables)
+		{
+			HashSet<ArrayList<String>> varRules = rules.get(var);
+			HashSet<ArrayList<String>> varNewRules = new HashSet<ArrayList<String>>();
+			
+			for (ArrayList<String> singleRule : varRules)
+			{
+				if ((singleRule.size() == 1) && (singleRule.get(0).length() != 1))		// unit rule found
+				{
+					for (ArrayList<String> tempSingleRule : rules.get(singleRule.get(0)))
+					{
+						if (((tempSingleRule.size() == 1) || (tempSingleRule.get(0).length() != 1)))
+							varNewRules.add(tempSingleRule);
+					}
+				}
+				else
+					varNewRules.add(singleRule);
+			}
+			
+			newRules.put(var, varNewRules);
+		}
 		
+		rules = newRules;
 	}
 
 	private static void RemoveEpsilon() {
