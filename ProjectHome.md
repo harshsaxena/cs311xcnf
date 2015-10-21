@@ -1,0 +1,1 @@
+Program that translate cfg to cnf and show step-by-step as it goes
